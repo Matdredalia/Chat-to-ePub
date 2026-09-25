@@ -34,3 +34,7 @@ python3 test/validate.py out.epub
 ```
 
 The harness expects SillyTavern's `node_modules` (for `showdown`) at `~/OneDrive/Desktop/SillyTavern`; set `ST_ROOT` to change that.
+
+## License
+
+[WTFPL](LICENSE) — do what the fuck you want to.
