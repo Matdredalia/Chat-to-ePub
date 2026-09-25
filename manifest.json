@@ -1,0 +1,12 @@
+{
+  "display_name": "Chat to EPUB",
+  "loading_order": 100,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "Matdredalia",
+  "version": "0.1.0",
+  "homePage": "",
+  "auto_update": false
+}
