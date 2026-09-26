@@ -175,7 +175,7 @@ function dialogTemplate() {
             </div>
         </div>
         <label class="cte-check"><input type="checkbox" id="cte-names" /> Show speaker names</label>
-        <label class="cte-check"><input type="checkbox" id="cte-names-every" /> Repeat the name on every message</label>
+        <label class="cte-check"><input type="checkbox" id="cte-names-every" /> Repeat the name even when the same person posts twice in a row</label>
         <label class="cte-check"><input type="checkbox" id="cte-system" /> Include system / narrator notices <span style="opacity:.6">(and TunnelVision summaries)</span></label>
 
         <p class="cte-info" id="cte-info"></p>
@@ -256,10 +256,18 @@ function openDialog() {
     $('cte-system').checked = prefs.includeSystem ?? false;
     $('cte-error').textContent = '';
     setCover(null);
+    syncNameOptions();
     refreshInfo();
 
     $('cte-overlay').classList.add('cte-open');
     $('cte-title').focus();
+}
+
+// The "repeat" option only means something while names are shown.
+function syncNameOptions() {
+    const on = $('cte-names').checked;
+    $('cte-names-every').disabled = !on;
+    $('cte-names-every').parentElement.style.opacity = on ? '' : '0.5';
 }
 
 function closeDialog() {
@@ -342,6 +350,7 @@ function injectDialog() {
     $('cte-cover-pick').addEventListener('click', () => $('cte-cover-input').click());
     $('cte-cover-clear').addEventListener('click', () => setCover(null));
     $('cte-cover-input').addEventListener('change', (e) => onCoverChosen(e.target));
+    $('cte-names').addEventListener('change', syncNameOptions);
     $('cte-system').addEventListener('change', refreshInfo);
     $('cte-from').addEventListener('input', refreshInfo);
     $('cte-to').addEventListener('input', refreshInfo);
