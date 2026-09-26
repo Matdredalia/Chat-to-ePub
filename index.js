@@ -67,6 +67,28 @@ function prepareMessages(ctx, userName, charName) {
     return (ctx.chat || []).map((m) => ({ ...m, mes: fill(m.mes) }));
 }
 
+/** Read the From/To fields into an inclusive 0-based range over the chat array. */
+function readRange(length) {
+    const parse = (id) => {
+        const raw = $(id).value.trim();
+        if (raw === '') return null;
+        const n = Number(raw);
+        return Number.isInteger(n) && n >= 0 ? n : NaN;
+    };
+    const fromRaw = parse('cte-from');
+    const toRaw = parse('cte-to');
+    if (Number.isNaN(fromRaw) || Number.isNaN(toRaw)) return { error: 'Message numbers must be whole numbers, 0 or higher.' };
+    const from = fromRaw ?? 0;
+    const to = Math.min(toRaw ?? length - 1, length - 1);
+    if (from > length - 1) return { error: `The chat only goes up to #${length - 1}.` };
+    if (from > to) return { error: '“From” can’t be after “To”.' };
+    return { from, to, explicitTo: toRaw !== null };
+}
+
+function currentChatId(ctx) {
+    return typeof ctx.getCurrentChatId === 'function' ? ctx.getCurrentChatId() : ctx.chatId;
+}
+
 function safeFileName(title) {
     const cleaned = title.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 100);
     return cleaned || 'chat';
@@ -139,6 +161,19 @@ function dialogTemplate() {
             <label for="cte-chapter">Start a new chapter every N messages <span style="opacity:.6">(0 = one chapter)</span></label>
             <input type="number" class="text_pole" id="cte-chapter" min="0" step="1" value="0" style="max-width: 120px;" />
         </div>
+        <div class="cte-field">
+            <span class="cte-label">Message range <span style="opacity:.6">— the <b>#</b> numbers shown on messages (User Settings → “Message IDs”). Blank = whole chat.</span></span>
+            <div class="cte-row">
+                <div class="cte-field" style="margin-bottom:0">
+                    <label for="cte-from">From #</label>
+                    <input type="number" class="text_pole" id="cte-from" min="0" step="1" placeholder="start" />
+                </div>
+                <div class="cte-field" style="margin-bottom:0">
+                    <label for="cte-to">To #</label>
+                    <input type="number" class="text_pole" id="cte-to" min="0" step="1" placeholder="end" />
+                </div>
+            </div>
+        </div>
         <label class="cte-check"><input type="checkbox" id="cte-names" /> Show speaker names</label>
         <label class="cte-check"><input type="checkbox" id="cte-names-every" /> Repeat the name on every message</label>
         <label class="cte-check"><input type="checkbox" id="cte-system" /> Include system / narrator notices <span style="opacity:.6">(and TunnelVision summaries)</span></label>
@@ -183,9 +218,16 @@ function refreshInfo() {
     const ctx = getCtx();
     if (!ctx) return;
     const chat = ctx.chat || [];
+    const range = readRange(chat.length);
+    if (range.error) {
+        $('cte-info').textContent = range.error;
+        return;
+    }
     const includeSystem = $('cte-system').checked;
-    const usable = chat.filter((m) => String(m.mes ?? '').trim() && (includeSystem || !isRealSystemMessage(m))).length;
-    $('cte-info').textContent = `${usable} of ${chat.length} messages will be included.`;
+    const usable = chat.slice(range.from, range.to + 1)
+        .filter((m) => String(m.mes ?? '').trim() && (includeSystem || !isRealSystemMessage(m))).length;
+    const scope = range.from === 0 && range.to === chat.length - 1 ? 'whole chat' : `messages #${range.from}–#${range.to}`;
+    $('cte-info').textContent = `${usable} messages will be included (${scope}; the chat runs #0–#${chat.length - 1}).`;
 }
 
 function openDialog() {
@@ -205,6 +247,10 @@ function openDialog() {
     $('cte-series').value = remembered.name || '';
     $('cte-series-index').value = remembered.next ?? '';
     $('cte-chapter').value = prefs.chapterEvery ?? 0;
+    // Book 2 of a chat picks up where book 1 ended.
+    const next = (prefs.rangeNext || {})[currentChatId(ctx)];
+    $('cte-from').value = Number.isInteger(next) && next < ctx.chat.length ? next : '';
+    $('cte-to').value = '';
     $('cte-names').checked = prefs.showNames ?? true;
     $('cte-names-every').checked = prefs.nameEveryMessage ?? false;
     $('cte-system').checked = prefs.includeSystem ?? false;
@@ -239,13 +285,16 @@ async function onExport() {
             includeSystem: $('cte-system').checked,
         };
 
+        const range = readRange((ctx.chat || []).length);
+        if (range.error) throw new Error(range.error);
+
         button.disabled = true;
         button.textContent = 'Building…';
         // Let the button repaint before the (synchronous) rendering work starts.
         await new Promise((resolve) => setTimeout(resolve, 30));
 
         const { bytes, count } = await buildEpub({
-            messages: prepareMessages(ctx, userName, charName),
+            messages: prepareMessages(ctx, userName, charName).slice(range.from, range.to + 1),
             meta: { title, author, language, description: $('cte-description').value.trim(), series, seriesIndex: seriesIndexRaw },
             cover: coverFile ? { bytes: coverFile.bytes } : null,
             options,
@@ -258,7 +307,12 @@ async function onExport() {
         const index = Number(seriesIndexRaw);
         if (series) seriesByChar[charName] = { name: series, next: seriesIndexRaw !== '' && Number.isFinite(index) ? index + 1 : '' };
         else delete seriesByChar[charName];
-        savePrefs({ ...prefs, author, language, ...options, seriesByChar });
+        // Remember where this book ended so the next one can start right after it.
+        const rangeNext = { ...(prefs.rangeNext || {}) };
+        const chatKey = currentChatId(ctx);
+        if (range.explicitTo && range.to < ctx.chat.length - 1) rangeNext[chatKey] = range.to + 1;
+        else delete rangeNext[chatKey];
+        savePrefs({ ...prefs, author, language, ...options, seriesByChar, rangeNext });
         notify('success', `Exported ${count} messages.`);
         closeDialog();
     } catch (e) {
@@ -289,6 +343,8 @@ function injectDialog() {
     $('cte-cover-clear').addEventListener('click', () => setCover(null));
     $('cte-cover-input').addEventListener('change', (e) => onCoverChosen(e.target));
     $('cte-system').addEventListener('change', refreshInfo);
+    $('cte-from').addEventListener('input', refreshInfo);
+    $('cte-to').addEventListener('input', refreshInfo);
 }
 
 function injectMenuButton() {
