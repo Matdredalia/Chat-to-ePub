@@ -105,6 +105,16 @@ function dialogTemplate() {
                 <input type="text" class="text_pole" id="cte-language" placeholder="en" />
             </div>
         </div>
+        <div class="cte-row">
+            <div class="cte-field">
+                <label for="cte-series">Series <span style="opacity:.6">(optional — groups books in Calibre / Kindle)</span></label>
+                <input type="text" class="text_pole" id="cte-series" placeholder="e.g. the name of this RP" />
+            </div>
+            <div class="cte-field" style="max-width: 110px;">
+                <label for="cte-series-index">Book #</label>
+                <input type="number" class="text_pole" id="cte-series-index" min="0" step="any" />
+            </div>
+        </div>
         <div class="cte-field">
             <label for="cte-description">Description <span style="opacity:.6">(optional)</span></label>
             <textarea class="text_pole" id="cte-description" rows="3"></textarea>
@@ -131,7 +141,7 @@ function dialogTemplate() {
         </div>
         <label class="cte-check"><input type="checkbox" id="cte-names" /> Show speaker names</label>
         <label class="cte-check"><input type="checkbox" id="cte-names-every" /> Repeat the name on every message</label>
-        <label class="cte-check"><input type="checkbox" id="cte-system" /> Include system / narrator notices</label>
+        <label class="cte-check"><input type="checkbox" id="cte-system" /> Include system / narrator notices <span style="opacity:.6">(and TunnelVision summaries)</span></label>
 
         <p class="cte-info" id="cte-info"></p>
         <p class="cte-error" id="cte-error" role="alert"></p>
@@ -190,6 +200,10 @@ function openDialog() {
     $('cte-author').value = prefs.author || userName;
     $('cte-language').value = prefs.language || 'en';
     $('cte-description').value = '';
+    // The series is remembered per character, with the next book number ready to go.
+    const remembered = (prefs.seriesByChar || {})[charName] || {};
+    $('cte-series').value = remembered.name || '';
+    $('cte-series-index').value = remembered.next ?? '';
     $('cte-chapter').value = prefs.chapterEvery ?? 0;
     $('cte-names').checked = prefs.showNames ?? true;
     $('cte-names-every').checked = prefs.nameEveryMessage ?? false;
@@ -216,6 +230,8 @@ async function onExport() {
         const title = $('cte-title').value.trim() || `${charName} & ${userName}`;
         const author = $('cte-author').value.trim() || userName;
         const language = $('cte-language').value.trim() || 'en';
+        const series = $('cte-series').value.trim();
+        const seriesIndexRaw = $('cte-series-index').value.trim();
         const options = {
             chapterEvery: Math.max(0, Math.floor(Number($('cte-chapter').value) || 0)),
             showNames: $('cte-names').checked,
@@ -230,14 +246,19 @@ async function onExport() {
 
         const { bytes, count } = await buildEpub({
             messages: prepareMessages(ctx, userName, charName),
-            meta: { title, author, language, description: $('cte-description').value.trim() },
+            meta: { title, author, language, description: $('cte-description').value.trim(), series, seriesIndex: seriesIndexRaw },
             cover: coverFile ? { bytes: coverFile.bytes } : null,
             options,
             markdownToHtml: makeConverter(),
         });
 
         download(bytes, `${safeFileName(title)}.epub`);
-        savePrefs({ author, language, ...options });
+        const prefs = loadPrefs();
+        const seriesByChar = { ...(prefs.seriesByChar || {}) };
+        const index = Number(seriesIndexRaw);
+        if (series) seriesByChar[charName] = { name: series, next: seriesIndexRaw !== '' && Number.isFinite(index) ? index + 1 : '' };
+        else delete seriesByChar[charName];
+        savePrefs({ ...prefs, author, language, ...options, seriesByChar });
         notify('success', `Exported ${count} messages.`);
         closeDialog();
     } catch (e) {

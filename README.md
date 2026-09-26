@@ -9,10 +9,11 @@ Export the chat you have open as an EPUB for your Kindle or e-reader, straight f
 Open a chat, then wand menu → **Export to EPUB**. Fill in:
 
 - **Title, author, language, description** — written into the EPUB's metadata.
+- **Series and book number** — groups the books of one RP together in Calibre and on Kindle. It's remembered per character, and the next book number is filled in for you.
 - **Cover** — pick a JPEG or PNG. It's embedded in the file, so it shows on the device.
 - **Chapters** — start a new chapter every N messages (0 = one chapter).
 - **Speaker names**, and whether to repeat them on every message.
-- **System / narrator notices** — off by default.
+- **System / narrator notices** — off by default. This includes TunnelVision summary markers and tool-call notices, so they stay out of the book unless you turn this on.
 
 Your browser downloads the `.epub`. Author, language and the toggles are remembered for next time.
 

@@ -36,12 +36,21 @@ export function detectCover(bytes) {
 }
 
 /**
+ * True for messages that are notices, not story: system/narrator messages and
+ * extension bookkeeping such as TunnelVision's summary markers.
+ *
  * ST sets is_system on two very different things: messages hidden from the AI
- * (/hide, context trimming; still real story text) and genuine system/narrator
- * notices. Genuine notices carry an extra.type or are named "System".
+ * (/hide, context trimming; still real story text, still under the speaker's own
+ * name) and genuine notices. Notices carry an extra.type, are named "System", or
+ * come from a known extension.
  */
 export function isRealSystemMessage(msg) {
-    return !!msg.is_system && (!!(msg.extra && msg.extra.type) || String(msg.name || '').toLowerCase() === 'system');
+    const extra = msg.extra || {};
+    // Explicit extension markers: excluded whatever their is_system flag says.
+    if (extra.tunnelvision_summary || Array.isArray(extra.tool_invocations)) return true;
+    if (!msg.is_system) return false;
+    const name = String(msg.name || '').toLowerCase();
+    return !!extra.type || name === 'system' || name === 'tunnelvision';
 }
 
 const prettyName = (name) => String(name).replace(/_/g, ' ');
@@ -68,7 +77,7 @@ ${body}
 /**
  * @param {object} input
  * @param {object[]} input.messages   ST chat messages (header line already removed)
- * @param {object} input.meta         { title, author, language, description }
+ * @param {object} input.meta         { title, author, language, description, series, seriesIndex }
  * @param {{bytes: Uint8Array}|null} input.cover  jpeg or png bytes
  * @param {object} input.options      { chapterEvery, showNames, nameEveryMessage, includeSystem, userName, charName }
  * @param {(text: string) => string} input.markdownToHtml
@@ -84,6 +93,9 @@ export async function buildEpub({ messages, meta, cover, options = {}, markdownT
     const title = (meta.title || 'Untitled chat').trim();
     const author = (meta.author || 'Unknown').trim();
     const language = (meta.language || 'en').trim();
+    const seriesName = (meta.series || '').trim();
+    const seriesIndex = meta.seriesIndex === '' || meta.seriesIndex == null ? NaN : Number(meta.seriesIndex);
+    const hasIndex = seriesName && Number.isFinite(seriesIndex) && seriesIndex >= 0;
 
     // ── render messages ──
     const rendered = [];
@@ -156,7 +168,12 @@ export async function buildEpub({ messages, meta, cover, options = {}, markdownT
 <dc:title>${escapeXml(title)}</dc:title>
 <dc:creator>${escapeXml(author)}</dc:creator>
 <dc:language>${escapeXml(language)}</dc:language>${meta.description ? `\n<dc:description>${escapeXml(meta.description)}</dc:description>` : ''}
-<meta property="dcterms:modified">${modified}</meta>${coverInfo ? '\n<meta name="cover" content="cover-image"/>' : ''}
+<meta property="dcterms:modified">${modified}</meta>${seriesName ? `
+<meta property="belongs-to-collection" id="series-1">${escapeXml(seriesName)}</meta>
+<meta refines="#series-1" property="collection-type">series</meta>${hasIndex ? `
+<meta refines="#series-1" property="group-position">${seriesIndex}</meta>` : ''}
+<meta name="calibre:series" content="${escapeXml(seriesName)}"/>${hasIndex ? `
+<meta name="calibre:series_index" content="${seriesIndex}"/>` : ''}` : ''}${coverInfo ? '\n<meta name="cover" content="cover-image"/>' : ''}
 </metadata>
 <manifest>
 ${manifest.join('\n')}
