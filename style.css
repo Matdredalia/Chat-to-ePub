@@ -1,7 +1,7 @@
 #cte-overlay {
     position: fixed;
     inset: 0;
-    z-index: 10000;
+    z-index: 100000; /* well above ST's own #extensionsMenu (29999), so the wand menu can't sit on top of this */
     display: none;
     /* flex-start, not center: on mobile, vh is computed against the browser's largest
        possible viewport, ignoring its address bar currently eating into the real visible
