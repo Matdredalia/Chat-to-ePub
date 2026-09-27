@@ -6,7 +6,7 @@
   "js": "index.js",
   "css": "style.css",
   "author": "Matdredalia",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "homePage": "https://github.com/Matdredalia/Chat-to-ePub",
   "auto_update": false
 }

@@ -1,13 +1,21 @@
 #cte-overlay {
-    position: fixed;
-    inset: 0;
+    /* position: absolute, not fixed — matching SillyTavern's own #shadow_popup/#dialogue_popup.
+       ST's mobile-styles.css sets `body { position: fixed; overflow: hidden; }` on any screen
+       <=1000px wide, specifically to lock background scrolling while a drawer is open. A
+       position:fixed overlay is then a fixed element living inside another fixed element, which
+       real mobile browsers (confirmed: reported on Firefox, Chrome, Brave, DuckDuckGo and Hermit
+       alike) render or stack incorrectly — even though this cannot be reproduced in headless
+       testing, which has no real mobile rendering path to exercise this. ST's own popups avoid
+       the whole problem by using position: absolute against that fixed body instead.
+       Explicit width/height (rather than inset: 0) mirrors #shadow_popup exactly. */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
     z-index: 100000; /* well above ST's own #extensionsMenu (29999), so the wand menu can't sit on top of this */
     display: none;
-    /* flex-start, not center: on mobile, vh is computed against the browser's largest
-       possible viewport, ignoring its address bar currently eating into the real visible
-       area — so a centered dialog sized off vh can render partly above what's actually on
-       screen, with no way to scroll back up to it. A small fixed top offset avoids that,
-       and overflow-y here is a fallback in case the dialog is ever taller than the overlay. */
     align-items: flex-start;
     justify-content: center;
     overflow-y: auto;
