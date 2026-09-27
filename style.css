@@ -3,8 +3,16 @@
     inset: 0;
     z-index: 10000;
     display: none;
-    align-items: center;
+    /* flex-start, not center: on mobile, vh is computed against the browser's largest
+       possible viewport, ignoring its address bar currently eating into the real visible
+       area — so a centered dialog sized off vh can render partly above what's actually on
+       screen, with no way to scroll back up to it. A small fixed top offset avoids that,
+       and overflow-y here is a fallback in case the dialog is ever taller than the overlay. */
+    align-items: flex-start;
     justify-content: center;
+    overflow-y: auto;
+    padding: max(16px, 4vh) 12px;
+    box-sizing: border-box;
     background: rgba(0, 0, 0, 0.55);
 }
 #cte-overlay.cte-open { display: flex; }
@@ -12,6 +20,7 @@
 .cte-dialog {
     width: min(540px, 94vw);
     max-height: 90vh;
+    max-height: 90dvh; /* real visible height on mobile; older browsers keep the vh fallback above */
     overflow-y: auto;
     box-sizing: border-box;
     padding: 18px 20px;
