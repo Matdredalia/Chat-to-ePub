@@ -2,3 +2,6 @@ node_modules/
 *.epub
 *.azw3
 *.pdf
+
+# Dev-only test harness: kept locally, not needed to run the extension
+test/

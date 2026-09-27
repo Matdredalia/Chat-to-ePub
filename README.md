@@ -26,16 +26,6 @@ Markdown (`*italics*`, `**bold**`, quotes, lists, tables, code) is rendered with
 
 Copy this folder into `SillyTavern/data/<your-user>/extensions/chat-to-epub/` and reload SillyTavern.
 
-## Development
-
-The core (`epub.js`, `xhtml.js`, `zip.js`) has no DOM or dependencies and is tested in Node against real chats:
-
-```
-node test/build-test.mjs <chat.jsonl> out.epub [cover.png] [chapterEvery]
-python3 test/validate.py out.epub
-```
-
-The harness expects SillyTavern's `node_modules` (for `showdown`) at `~/OneDrive/Desktop/SillyTavern`; set `ST_ROOT` to change that.
 
 ## License
 
